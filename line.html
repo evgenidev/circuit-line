@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html><head>
+<style>
+</style>
+</head>
+<body>
+<script src="d3.js"></script>
+<svg id="visualisation" width="800" height="800"></svg>
+
+<script type="text/javascript">
+
+// initialize
+  var vis = d3.select("#visualisation"),
+    WIDTH = 600,
+    HEIGHT = 600,
+    MARGINS = {
+      top: 50,
+      right: 50,
+      bottom: 50,
+      left: 50
+    },
+    // xRange = d3.scale.linear().range([MARGINS.left, WIDTH - MARGINS.right]).domain([d3.min(lineData, function (d) { return d.x; }),
+    //   d3.max(lineData, function (d) { return d.x; })
+    // ]),
+
+    // yRange = d3.scale.linear().range([HEIGHT - MARGINS.top, MARGINS.bottom]).domain([d3.min(lineData, function (d) { return d.y; }),
+    //   d3.max(lineData, function (d) { return d.y; })
+    // ]),
+
+    xRange = d3.scale.linear().range([MARGINS.left, WIDTH - MARGINS.right]).domain([0, 100]),
+    yRange = d3.scale.linear().range([HEIGHT - MARGINS.top, MARGINS.bottom]).domain([0, 100]),
+
+    xAxis = d3.svg.axis()
+      .scale(xRange)
+      .tickSize(5)
+      .tickSubdivide(true),
+
+    yAxis = d3.svg.axis()
+      .scale(yRange)
+      .tickSize(5)
+      .orient("left")
+      .tickSubdivide(true);
+
+  vis.append("svg:g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0, 0" + (HEIGHT - MARGINS.bottom) + ")")
+    .call(xAxis);
+
+  vis.append("svg:g")
+    .attr("class", "y axis")
+    .attr("transform", "translate(" + (MARGINS.left) + ",0)")
+    .call(yAxis);
+
+  vis.append("svg:g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + (MARGINS.top) + ")")
+    .call(d3.svg.axis().scale(xRange).orient("top"));
+
+  vis.append("svg:g")
+    .attr("class", "y axis")
+    .attr("transform", "translate(" + (WIDTH - MARGINS.right) + ",0)")
+    .call(d3.svg.axis().scale(yRange).orient("right"));
+
+  var lineFunc = d3.svg.line()
+    .x(function (d) {
+      return xRange(d.x);
+    })
+    .y(function (d) {
+      return yRange(d.y);
+    })
+    .interpolate('linear');
+
+  var bendCountMax = 4;
+  var color = d3.scale.category20();
+
+  var lineInterval = 500 /(WIDTH - MARGINS.right - MARGINS.left);
+  var pixelInterval = 5, lineWidth = 4;
+  var points = 3;
+
+  var offsetMain = pixelInterval * 3 + lineWidth / 2;
+  var offset = offsetMain / pixelInterval;
+  var offset_1 = lineWidth / 2 / pixelInterval;
+
+d3.json("data.json", function(error, data) {
+
+  data.map(function(d, index) {
+
+    var startX = d.start.x, startY = d.start.y, endX = d.end.x, endY = d.end.y;
+
+    if (startY == 100 && endY == 0) // North -> South
+    {
+      if (startX == endX)
+      {
+        d.bendCount = 0;
+        DrawLine('down', startX, startY, endX, endY, lineInterval, color(index));
+      }
+      else
+      {
+        d.bendCount = 2;
+        d.toRight = (startX < endX) ? true : false;
+        d.bendAngle = 0;// Math.floor(Math.random() * 2);  // 0 - 90, 1 - 45
+
+        if (d.bendAngle == 0) {
+
+          var y_1 = Math.min(Math.max(Math.floor(Math.random() * Math.abs(startY - endY)), 10), 90);
+
+          if (d.toRight)
+          {
+            DrawLine('down', startX, startY, startX, y_1 + offset, lineInterval, color(index));
+            DrawLine('right', startX + offset, y_1, endX - offset_1, y_1, lineInterval, color(index));
+            DrawLine('down', endX, y_1 - offset_1, endX, endY, lineInterval, color(index));
+
+            DrawArc(offsetMain, -Math.PI / 2, -Math.PI, xRange(startX) + offsetMain, yRange(y_1) - offsetMain, pixelInterval, color(index));
+            DrawArc(offsetMain, 0, Math.PI / 2, xRange(endX) - lineWidth / 2, yRange(y_1) + lineWidth / 2, pixelInterval, color(index));
+          }
+          else
+          {
+            DrawLine('down', startX, startY, startX, y_1 + offset, lineInterval, color(index));
+            DrawLine('right', startX - offset_1, y_1, endX + offset, y_1, lineInterval, color(index));
+            DrawLine('down', endX, y_1 - offset_1, endX, endY, lineInterval, color(index));
+
+            DrawArc(offsetMain, Math.PI / 2, Math.PI, xRange(startX) - lineWidth / 2, yRange(y_1) - offsetMain, pixelInterval, color(index));
+            DrawArc(offsetMain, 0, -Math.PI / 2, xRange(endX) + offsetMain, yRange(y_1) + lineWidth / 2, pixelInterval, color(index));
+          }
+        };
+      }
+    }
+    else if (startY == 100 && endX == 100) // North -> East
+    {
+      d.bendCount = Math.floor(Math.random() * 2); // 0 - 90, 1 - 45
+
+      if (d.bendCount == 0)
+      {
+        DrawLine('down', startX, startY, startX, endY + offset, lineInterval, color(index));
+        DrawLine('right', startX + offset, endY, endX, endY, lineInterval, color(index));
+        DrawArc(offsetMain, -Math.PI / 2, -Math.PI, xRange(startX) + offsetMain, yRange(endY) - offsetMain, pixelInterval, color(index));
+      }
+      else
+      {
+        // calculate size of bended part
+        var delta = Math.min(endX - startX, startY - endY) / 2;
+        delta = Math.max(Math.floor(Math.random() * delta), 10);
+
+        var x_1 = startX + delta;
+        var y_1 = endY + delta;
+
+        DrawLine('down', startX, startY, startX, y_1, lineInterval, color(index));
+        DrawLine('right', x_1, endY, endX, endY, lineInterval, color(index));
+
+        // bended part
+        DrawLine2('downRight', startX, y_1, x_1, endY, lineInterval, color(index));
+
+        DrawArc(offsetMain, -Math.PI / 2, -Math.PI *3 / 4, xRange(startX) + offsetMain, yRange(y_1), pixelInterval, color(index));
+        DrawArc(offsetMain, -Math.PI * 3 / 4, -Math.PI, xRange(x_1), yRange(endY) - offsetMain, pixelInterval, color(index));
+
+      }
+    }
+  });
+
+  var paths = vis.selectAll('path');
+  paths.map(function(path, i){
+    path.map(function(d) {
+      console.log(d.attributes["d"]);
+    })
+  })
+});
+
+function DrawLine(direction, startX, startY, endX, endY, interval, color)
+{
+  for (var i = 0; i < 4; i++)
+  {
+    var lineData = [];
+
+    if (direction == 'down')
+    {
+      lineData.push({'x': startX + interval * i, 'y': startY});
+      lineData.push({'x': endX + interval * i, 'y': endY});
+    }
+    else if (direction == 'right')
+    {
+      lineData.push({'x': startX, 'y': startY + interval * i});
+      lineData.push({'x': endX, 'y': endY + interval * i});
+    }
+
+    vis.append("svg:path")
+      .attr("d", lineFunc(lineData))
+      .attr("stroke", color)
+      .attr("stroke-width", 4)
+      .attr("fill", "none");
+  }
+}
+
+function DrawLine2(direction, startX, startY, endX, endY, interval, color)
+{
+  for (var i = 0; i < 4; i++)
+  {
+    var lineData = [];
+
+    if (direction == 'downRight')
+    {
+      var r = offsetMain - i * pixelInterval;
+      var delta = r * Math.cos(Math.PI / 4);
+
+      lineData.push({'x': startX + (offsetMain - delta) / pixelInterval, 'y': startY - delta / pixelInterval});
+      lineData.push({'x': endX - delta / pixelInterval, 'y': endY + (offsetMain - delta) / pixelInterval});
+    }
+
+    vis.append("svg:path")
+      .attr("d", lineFunc(lineData))
+      .attr("stroke", color)
+      .attr("stroke-width", 4)
+      .attr("fill", "none");
+  }
+}
+
+function DrawArc(radius, startAngle, endAngle, centerX, centerY, interval, color)
+{
+  var angle = d3.scale.linear()
+    .domain([0, points - 1])
+    .range([startAngle, endAngle]);
+
+  for (var i = 0; i < 4; i++)
+  {
+    var lineArc = d3.svg.line.radial()
+      .interpolate("basis")
+      .tension(0)
+      .radius(radius - interval * i)
+      .angle(function(d, i) { return angle(i); });
+
+    vis.append("path").datum(d3.range(points))
+      .attr("class", "line")
+      .attr("d", lineArc)
+      .attr("stroke", color)
+      .attr("stroke-width", 4)
+      .attr("fill", "none")
+      .attr("transform", "translate(" + (centerX) + ", " + (centerY) + ")");
+  }
+}
+
+</script>
+</body>
+</html>
